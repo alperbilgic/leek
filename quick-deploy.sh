@@ -86,6 +86,4 @@ else
     echo -e "${RED}❌ Deployment failed${NC}"
     echo "Check the logs: heroku logs --tail --app $APP_NAME"
     exit 1
-fi
-
-redis://default:j14lj2D1cKHv7M3ozOi2CQXtBJGaNiVF@redis-11034.c77.eu-west-1-1.ec2.redns.redis-cloud.com:11034
+fi 

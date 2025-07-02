@@ -1,0 +1,10 @@
+build:
+  docker:
+    web: Dockerfile
+run:
+  web: /usr/bin/supervisord -c /opt/app/conf/supervisord-heroku.conf
+release:
+  image: web
+  command:
+    - python
+    - /opt/app/bin/bootstrap.py 

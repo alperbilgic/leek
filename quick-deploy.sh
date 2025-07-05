@@ -80,6 +80,26 @@ if [ $? -eq 0 ]; then
     echo ""
     echo -e "${YELLOW}🌐 Your Leek instance:${NC} $HEROKU_APP_URL"
     echo ""
+    
+    # Auto-sync Django data to Leek
+    echo -e "${BLUE}🔄 Starting automatic Django to Leek sync...${NC}"
+    export LEEK_APP_NAME="$APP_NAME"
+    
+    if [ -f "post_deploy_sync.sh" ]; then
+        echo -e "${YELLOW}📋 Running post-deployment sync...${NC}"
+        chmod +x post_deploy_sync.sh
+        if ./post_deploy_sync.sh; then
+            echo -e "${GREEN}✅ Post-deployment sync completed successfully!${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Post-deployment sync failed, but deployment was successful${NC}"
+            echo -e "${YELLOW}   You can run it manually later: ./post_deploy_sync.sh${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  post_deploy_sync.sh not found, skipping automatic sync${NC}"
+        echo -e "${YELLOW}   You can run sync manually if needed${NC}"
+    fi
+    
+    echo ""
     echo -e "${YELLOW}Next steps:${NC}"
     echo "1. Add $(echo $HEROKU_APP_URL | sed 's|https://||') to Firebase authorized domains"
     echo "2. Configure your Celery workers to send events"

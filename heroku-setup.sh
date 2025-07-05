@@ -41,6 +41,10 @@ HEROKU_APP_NAME=${input_app_name:-$HEROKU_APP_NAME}
 read -p "Enter your original app name [funly-manage-test]: " input_original_app
 ORIGINAL_APP=${input_original_app:-$ORIGINAL_APP}
 
+# Export environment variables for post-deployment scripts
+export LEEK_APP_NAME="$HEROKU_APP_NAME"
+export DJANGO_APP_NAME="$ORIGINAL_APP"
+
 read -p "Enter your Firebase Project ID: " FIREBASE_PROJECT_ID
 if [ -z "$FIREBASE_PROJECT_ID" ]; then
     echo -e "${RED}❌ Firebase Project ID is required${NC}"
@@ -148,6 +152,8 @@ heroku config:set \
   LEEK_ES_INDEX_CLEANUP_ENABLED=false \
   LEEK_CLEAN_DATABASE_ON_STARTUP=false \
   LEEK_PERSIST_ON_WORKER_RESTART=true \
+  DEPLOYMENT_LEEK_APP=$HEROKU_APP_NAME \
+  DEPLOYMENT_DJANGO_APP=$ORIGINAL_APP \
   --app $HEROKU_APP_NAME
 
 # Set agent subscriptions
@@ -160,7 +166,7 @@ AGENT_SUBSCRIPTIONS="[
     \"queue\": \"leek.fanout\",
     \"routing_key\": \"#\",
     \"org_name\": \"$EMAIL_DOMAIN\",
-    \"app_name\": \"funly-manage\",
+    \"app_name\": \"funly\",
     \"app_env\": \"prod\",
     \"prefetch_count\": 1000,
     \"concurrency_pool_size\": 2,

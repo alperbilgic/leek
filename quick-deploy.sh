@@ -63,7 +63,7 @@ fi
 
 # Push to Heroku
 echo -e "${YELLOW}⬆️  Pushing to Heroku (this may take several minutes)...${NC}"
-git push heroku-leek master:main
+git push heroku-leek heroku-deployment:main
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Deployment successful!${NC}"

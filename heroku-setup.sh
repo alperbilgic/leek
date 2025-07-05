@@ -113,6 +113,15 @@ AGENT_SECRET=$(openssl rand -hex 32)
 echo -e "${YELLOW}🐳 Setting stack to container for Docker deployment...${NC}"
 heroku stack:set container --app $HEROKU_APP_NAME
 
+# Get the actual app URL from Heroku
+echo -e "${YELLOW}🔗 Getting app URL from Heroku...${NC}"
+HEROKU_APP_URL=$(heroku info --app $HEROKU_APP_NAME | grep "Web URL" | awk '{print $3}')
+if [ -z "$HEROKU_APP_URL" ]; then
+    echo -e "${RED}❌ Could not get app URL from Heroku${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ App URL obtained: $HEROKU_APP_URL${NC}"
+
 # Set environment variables
 echo -e "${YELLOW}⚙️  Setting environment variables...${NC}"
 
@@ -129,10 +138,16 @@ heroku config:set \
   LEEK_FIREBASE_APP_ID=$FIREBASE_APP_ID \
   LEEK_API_OWNER_ORG=$EMAIL_DOMAIN \
   LEEK_API_WHITELISTED_ORGS=$EMAIL_DOMAIN \
-  LEEK_API_URL=https://$HEROKU_APP_NAME.herokuapp.com \
-  LEEK_WEB_URL=https://$HEROKU_APP_NAME.herokuapp.com \
+  LEEK_API_URL=$HEROKU_APP_URL \
+  LEEK_WEB_URL=$HEROKU_APP_URL \
   LEEK_ES_URL=http://localhost:9200 \
   LEEK_AGENT_API_SECRET=$AGENT_SECRET \
+  LEEK_ENABLE_EVENTS_CLEANUP=false \
+  LEEK_ENABLE_STATS_CLEANUP=false \
+  LEEK_CLEAN_BROKER_ON_STARTUP=false \
+  LEEK_ES_INDEX_CLEANUP_ENABLED=false \
+  LEEK_CLEAN_DATABASE_ON_STARTUP=false \
+  LEEK_PERSIST_ON_WORKER_RESTART=true \
   --app $HEROKU_APP_NAME
 
 # Set agent subscriptions
@@ -177,8 +192,8 @@ echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Deploy the app with Docker: git push heroku-leek master:main (from project root)"
 echo "2. Scale the web dyno: heroku ps:scale web=1 --app $HEROKU_APP_NAME"
-echo "3. Add $HEROKU_APP_NAME.herokuapp.com to Firebase authorized domains"
+echo "3. Add $(echo $HEROKU_APP_URL | sed 's|https://||') to Firebase authorized domains"
 echo "4. Configure your Celery workers to send events (see deployment guide)"
-echo "5. Visit https://$HEROKU_APP_NAME.herokuapp.com to access Leek UI"
+echo "5. Visit $HEROKU_APP_URL to access Leek UI"
 echo ""
 echo -e "${GREEN}📖 See heroku-deploy-guide.md for detailed instructions${NC}" 

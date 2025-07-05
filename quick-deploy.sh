@@ -72,14 +72,18 @@ if [ $? -eq 0 ]; then
     echo -e "${YELLOW}⚖️  Scaling web dyno...${NC}"
     heroku ps:scale web=1 --app $APP_NAME
     
+    # Get the actual app URL from Heroku
+    echo -e "${YELLOW}🔗 Getting app URL from Heroku...${NC}"
+    HEROKU_APP_URL=$(heroku info --app $APP_NAME | grep "Web URL" | awk '{print $3}')
+    
     echo -e "${GREEN}🎉 Leek is now running!${NC}"
     echo ""
-    echo -e "${YELLOW}🌐 Your Leek instance:${NC} https://$APP_NAME.herokuapp.com"
+    echo -e "${YELLOW}🌐 Your Leek instance:${NC} $HEROKU_APP_URL"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Add $APP_NAME.herokuapp.com to Firebase authorized domains"
+    echo "1. Add $(echo $HEROKU_APP_URL | sed 's|https://||') to Firebase authorized domains"
     echo "2. Configure your Celery workers to send events"
-    echo "3. Visit the URL above to access Leek"
+    echo "3. Visit $HEROKU_APP_URL to access Leek"
     echo ""
     echo -e "${BLUE}📚 Check the logs:${NC} heroku logs --tail --app $APP_NAME"
 else

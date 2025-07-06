@@ -113,7 +113,7 @@ def trigger_django_sync() -> bool:
     
     # Prepare the Django management command
     sync_command = [
-        "python", "manage.py", "sync_tasks_to_leek",
+        "python", "manage.py", "sync_django_to_leek",
         f"--days={sync_days}",
         f"--leek-url={leek_url}",
         "--org-name=palnea.com",

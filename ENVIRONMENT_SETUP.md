@@ -93,10 +93,10 @@ heroku logs --tail --dyno=release --app funly-prod-leek
 ### Manual Sync (If Needed)
 ```bash
 # Direct Django command (if manual sync needed)
-heroku run python manage.py sync_tasks_to_leek --days=30 --app funly-manage-prod
+heroku run python manage.py sync_django_to_leek --days=30 --app funly-manage-prod
 
 # Check if Django app has the sync command
-heroku run python manage.py help sync_tasks_to_leek --app funly-manage-prod
+heroku run python manage.py help sync_django_to_leek --app funly-manage-prod
 ```
 
 ## 📁 File Structure
@@ -157,7 +157,7 @@ export DJANGO_APP_NAME="your-django-app"
 ### Sync Failures
 ```bash
 # Check Django app has sync command
-heroku run python manage.py help sync_tasks_to_leek --app your-django-app
+heroku run python manage.py help sync_django_to_leek --app your-django-app
 
 # Check Leek is ready
 curl -s https://your-leek-app.herokuapp.com/v1/events/process \

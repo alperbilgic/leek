@@ -56,14 +56,18 @@ else
     git commit -m "Deploy Leek to Heroku with Docker - $(date)"
 fi
 
+# Get app name for deployment
+read -p "Enter Heroku remote name [heroku-test]: " HEROKU_REMOTE
+HEROKU_REMOTE=${HEROKU_REMOTE:-heroku-test}
+
 # Check if remote exists
-if ! git remote get-url heroku-leek &> /dev/null; then
-    heroku git:remote -a $APP_NAME -r heroku-leek
+if ! git remote get-url $HEROKU_REMOTE &> /dev/null; then
+    heroku git:remote -a $APP_NAME -r $HEROKU_REMOTE
 fi
 
 # Push to Heroku
 echo -e "${YELLOW}⬆️  Pushing to Heroku (this may take several minutes)...${NC}"
-git push heroku-test heroku-deployment:main
+git push $HEROKU_REMOTE heroku-deployment:main
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Deployment successful!${NC}"

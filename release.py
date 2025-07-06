@@ -3,7 +3,7 @@
 Heroku Release Task: Bootstrap Leek
 
 This script runs automatically after each Leek deployment on Heroku.
-It performs the standard bootstrap process to initialize Leek with Searchbox.
+It performs the standard bootstrap process to initialize Leek with Bonsai Elasticsearch.
 """
 
 import os
@@ -17,41 +17,44 @@ def log(message: str, level: str = "INFO"):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] [{level}] {message}")
 
-def configure_searchbox_environment():
-    """Configure environment variables for Searchbox compatibility"""
-    log("🔧 Configuring environment for Searchbox compatibility...")
+def configure_bonsai_environment():
+    """Configure environment variables for Bonsai Elasticsearch"""
+    log("🔧 Configuring environment for Bonsai Elasticsearch...")
     
-    # Set environment variables to disable operations that Searchbox doesn't allow
-    os.environ["LEEK_ES_IM_ENABLE"] = "false"
-    os.environ["LEEK_ES_INDEX_CLEANUP_ENABLED"] = "false"
-    os.environ["LEEK_CLEAN_DATABASE_ON_STARTUP"] = "false"
-    os.environ["LEEK_ENABLE_EVENTS_CLEANUP"] = "false"
-    os.environ["LEEK_ENABLE_STATS_CLEANUP"] = "false"
-    os.environ["LEEK_CLEAN_BROKER_ON_STARTUP"] = "false"
+    # Enable all ES features since Bonsai supports full functionality
+    os.environ["LEEK_ES_IM_ENABLE"] = "true"
+    os.environ["LEEK_ES_INDEX_CLEANUP_ENABLED"] = "true"
+    os.environ["LEEK_CLEAN_DATABASE_ON_STARTUP"] = "true"
+    os.environ["LEEK_ENABLE_EVENTS_CLEANUP"] = "true"
+    os.environ["LEEK_ENABLE_STATS_CLEANUP"] = "true"
+    os.environ["LEEK_CLEAN_BROKER_ON_STARTUP"] = "true"
     os.environ["LEEK_PERSIST_ON_WORKER_RESTART"] = "true"
     
-    # Disable local ES since we're using Searchbox
+    # Disable local ES since we're using Bonsai
     os.environ["LEEK_ENABLE_ES"] = "false"
     
-    log("✅ Environment configured for Searchbox")
+    # Enable auto app creation - Bonsai supports all ES operations
+    os.environ["LEEK_CREATE_APP_IF_NOT_EXIST"] = "true"
+    
+    log("✅ Environment configured for Bonsai")
 
-def run_searchbox_bootstrap():
-    """Run the Searchbox-compatible bootstrap process"""
-    log("🚀 Starting Searchbox-compatible bootstrap...")
+def run_bootstrap():
+    """Run the standard Leek bootstrap process"""
+    log("🚀 Starting Leek bootstrap...")
     
     try:
-        # Run our custom Searchbox-compatible bootstrap
+        # Run the standard bootstrap
         result = subprocess.run([
-            "python", "/opt/app/bin/bootstrap-searchbox.py"
+            "python", "/opt/app/bin/bootstrap.py"
         ], capture_output=True, text=True, timeout=300)
         
         if result.returncode == 0:
-            log("✅ Searchbox bootstrap completed successfully")
+            log("✅ Bootstrap completed successfully")
             if result.stdout:
                 print(result.stdout)
             return True
         else:
-            log(f"❌ Searchbox bootstrap failed with return code {result.returncode}", "ERROR")
+            log(f"❌ Bootstrap failed with return code {result.returncode}", "ERROR")
             if result.stderr:
                 print(result.stderr)
             return False
@@ -72,29 +75,12 @@ def wait_for_leek_api(max_retries: int = 30) -> bool:
     log("⏳ Waiting for Leek API to be ready...")
     
     api_url = get_config_value("LEEK_API_URL", "http://localhost:5000")
-    org_name = get_config_value("LEEK_API_OWNER_ORG", "palnea.com")
-    app_name = "funly"
-    api_secret = get_config_value("LEEK_AGENT_API_SECRET")
-    
-    if not api_secret:
-        log("❌ LEEK_AGENT_API_SECRET not found", "ERROR")
-        return False
-    
-    headers = {
-        "x-leek-org-name": org_name,
-        "x-leek-app-name": app_name,
-        "x-leek-app-env": "prod",
-        "x-leek-app-key": api_secret
-    }
     
     for i in range(max_retries):
         try:
-            response = requests.get(
-                f"{api_url}/v1/events/process",
-                headers=headers,
-                timeout=10
-            )
-            if response.status_code in [200, 404]:  # 404 is OK, means API is up but app not created yet
+            # Simple health check without triggering app creation
+            response = requests.get(f"{api_url}/v1/applications/", timeout=10)
+            if response.status_code in [200, 401, 403]:  # API is up (auth required is OK)
                 log("✅ Leek API is ready")
                 return True
         except Exception as e:
@@ -104,41 +90,40 @@ def wait_for_leek_api(max_retries: int = 30) -> bool:
     log("❌ Leek API failed to become ready", "ERROR")
     return False
 
-def check_searchbox_connection():
-    """Check Searchbox Elasticsearch connection"""
-    log("🔍 Checking Searchbox Elasticsearch connection...")
+def check_bonsai_connection():
+    """Check Bonsai Elasticsearch connection"""
+    log("🔍 Checking Bonsai Elasticsearch connection...")
     
-    searchbox_url = get_config_value("LEEK_ES_URL")
-    if not searchbox_url:
+    bonsai_url = get_config_value("LEEK_ES_URL")
+    if not bonsai_url:
         log("⚠️  LEEK_ES_URL not configured", "WARN")
         return True  # Don't fail if not configured yet
     
     try:
-        # Use basic GET request for compatibility
-        response = requests.get(searchbox_url, timeout=10)
+        response = requests.get(bonsai_url, timeout=10)
         if response.status_code == 200:
-            log("✅ Searchbox connection verified")
+            log("✅ Bonsai connection verified")
             return True
         else:
-            log(f"⚠️  Searchbox returned status {response.status_code}", "WARN")
+            log(f"⚠️  Bonsai returned status {response.status_code}", "WARN")
             return True  # Don't fail the release
     except Exception as e:
-        log(f"⚠️  Searchbox connection check failed: {str(e)}", "WARN")
+        log(f"⚠️  Bonsai connection check failed: {str(e)}", "WARN")
         return True  # Don't fail the release
 
 def main():
     """Main release process"""
-    log("🎬 Starting Heroku release process with Searchbox")
+    log("🎬 Starting Heroku release process with Bonsai Elasticsearch")
     
-    # Step 1: Configure environment for Searchbox
-    configure_searchbox_environment()
+    # Step 1: Configure environment for Bonsai
+    configure_bonsai_environment()
     
-    # Step 2: Check Searchbox connection
-    check_searchbox_connection()
+    # Step 2: Check Bonsai connection
+    check_bonsai_connection()
     
-    # Step 3: Run Searchbox-compatible bootstrap
-    if not run_searchbox_bootstrap():
-        log("❌ Release failed during Searchbox bootstrap", "ERROR")
+    # Step 3: Run standard bootstrap
+    if not run_bootstrap():
+        log("❌ Release failed during bootstrap", "ERROR")
         sys.exit(1)
     
     # Step 4: Final API verification
@@ -146,21 +131,21 @@ def main():
         log("❌ Release failed - API not ready", "ERROR")
         sys.exit(1)
     
-    log("🎉 Searchbox release process completed successfully!")
+    log("🎉 Bonsai release process completed successfully!")
     
     # Print summary
     leek_url = get_config_value("LEEK_WEB_URL", get_config_value("LEEK_API_URL", ""))
-    searchbox_url = get_config_value("LEEK_ES_URL", "")
+    bonsai_url = get_config_value("LEEK_ES_URL", "")
     
     if leek_url:
         log(f"🌐 Leek is available at: {leek_url}")
-    if searchbox_url:
-        log(f"🔍 Searchbox Elasticsearch: Connected")
+    if bonsai_url:
+        log(f"🔍 Bonsai Elasticsearch: Connected")
     
     log("📋 Next steps:")
-    log("   1. Create 'funly' application in Leek UI")
+    log("   1. Create 'funly' application via Leek UI or auto-creation")
     log("   2. Configure Celery workers to send events")
-    log("   3. Access Searchbox dashboard for monitoring")
+    log("   3. Access Bonsai dashboard for monitoring")
 
 if __name__ == "__main__":
     main() 

@@ -97,34 +97,34 @@ check_addon_exists() {
     heroku addons --app $app_name 2>/dev/null | grep -q "$addon_type"
 }
 
-# Add Searchbox Elasticsearch addon
-echo -e "${YELLOW}🔍 Setting up Searchbox Elasticsearch addon...${NC}"
-if check_addon_exists $HEROKU_APP_NAME "searchbox"; then
-    echo -e "${YELLOW}⚠️  Searchbox addon already exists. Continuing with existing addon...${NC}"
-    SEARCHBOX_URL=$(heroku config:get SEARCHBOX_URL --app $HEROKU_APP_NAME)
-    if [ -z "$SEARCHBOX_URL" ]; then
-        echo -e "${RED}❌ Could not get Searchbox URL from existing addon${NC}"
+# Add Bonsai Elasticsearch addon
+echo -e "${YELLOW}🔍 Setting up Bonsai Elasticsearch addon...${NC}"
+if check_addon_exists $HEROKU_APP_NAME "bonsai"; then
+    echo -e "${YELLOW}⚠️  Bonsai addon already exists. Continuing with existing addon...${NC}"
+    BONSAI_URL=$(heroku config:get BONSAI_URL --app $HEROKU_APP_NAME)
+    if [ -z "$BONSAI_URL" ]; then
+        echo -e "${RED}❌ Could not get Bonsai URL from existing addon${NC}"
         exit 1
     fi
 else
-    echo -e "${BLUE}📦 Adding Searchbox Elasticsearch addon...${NC}"
-    heroku addons:create searchbox:starter --app $HEROKU_APP_NAME
-    echo -e "${GREEN}✅ Searchbox addon created successfully${NC}"
+    echo -e "${BLUE}📦 Adding Bonsai Elasticsearch addon...${NC}"
+    heroku addons:create bonsai:sandbox-6 --app $HEROKU_APP_NAME
+    echo -e "${GREEN}✅ Bonsai addon created successfully${NC}"
     
     # Wait for addon to be provisioned
-    echo -e "${YELLOW}⏳ Waiting for Searchbox addon to be provisioned...${NC}"
-    sleep 10
+    echo -e "${YELLOW}⏳ Waiting for Bonsai addon to be provisioned...${NC}"
+    sleep 15
     
-    # Get Searchbox URL
-    SEARCHBOX_URL=$(heroku config:get SEARCHBOX_URL --app $HEROKU_APP_NAME)
-    if [ -z "$SEARCHBOX_URL" ]; then
-        echo -e "${RED}❌ Could not get Searchbox URL. Please check addon provisioning.${NC}"
+    # Get Bonsai URL
+    BONSAI_URL=$(heroku config:get BONSAI_URL --app $HEROKU_APP_NAME)
+    if [ -z "$BONSAI_URL" ]; then
+        echo -e "${RED}❌ Could not get Bonsai URL. Please check addon provisioning.${NC}"
         exit 1
     fi
 fi
 
-echo -e "${GREEN}✅ Searchbox Elasticsearch configured${NC}"
-echo -e "${BLUE}🌐 Searchbox URL: $SEARCHBOX_URL${NC}"
+echo -e "${GREEN}✅ Bonsai Elasticsearch configured${NC}"
+echo -e "${BLUE}🌐 Bonsai URL: $BONSAI_URL${NC}"
 
 # Check for unnecessary Redis addon
 if check_addon_exists $HEROKU_APP_NAME "redis"; then
@@ -170,15 +170,16 @@ heroku config:set \
   LEEK_API_WHITELISTED_ORGS=$EMAIL_DOMAIN \
   LEEK_API_URL=$HEROKU_APP_URL \
   LEEK_WEB_URL=$HEROKU_APP_URL \
-  LEEK_ES_URL=$SEARCHBOX_URL \
+  LEEK_ES_URL=$BONSAI_URL \
   LEEK_AGENT_API_SECRET=$AGENT_SECRET \
-  LEEK_ES_IM_ENABLE=false \
-  LEEK_ENABLE_EVENTS_CLEANUP=false \
-  LEEK_ENABLE_STATS_CLEANUP=false \
-  LEEK_CLEAN_BROKER_ON_STARTUP=false \
-  LEEK_ES_INDEX_CLEANUP_ENABLED=false \
-  LEEK_CLEAN_DATABASE_ON_STARTUP=false \
+  LEEK_ES_IM_ENABLE=true \
+  LEEK_ENABLE_EVENTS_CLEANUP=true \
+  LEEK_ENABLE_STATS_CLEANUP=true \
+  LEEK_CLEAN_BROKER_ON_STARTUP=true \
+  LEEK_ES_INDEX_CLEANUP_ENABLED=true \
+  LEEK_CLEAN_DATABASE_ON_STARTUP=true \
   LEEK_PERSIST_ON_WORKER_RESTART=true \
+  LEEK_CREATE_APP_IF_NOT_EXIST=true \
   --app $HEROKU_APP_NAME
 
 # Set agent subscriptions
@@ -216,9 +217,10 @@ fi
 echo -e "${GREEN}🎉 Setup complete!${NC}"
 echo ""
 echo -e "${YELLOW}✨ Configuration Summary:${NC}"
-echo "• Using Searchbox Elasticsearch addon for data persistence"
+echo "• Using Bonsai Elasticsearch addon for full ES functionality and data persistence"
 echo "• Using existing Redis from $ORIGINAL_APP"
 echo "• Firebase authentication configured"
+echo "• Auto app creation enabled (Bonsai supports all ES operations)"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Deploy the app with Docker: git push heroku-leek master:main (from project root)"
@@ -226,5 +228,6 @@ echo "2. Scale the web dyno: heroku ps:scale web=1 --app $HEROKU_APP_NAME"
 echo "3. Add $(echo $HEROKU_APP_URL | sed 's|https://||') to Firebase authorized domains"
 echo "4. Configure your Celery workers to send events (see deployment guide)"
 echo "5. Visit $HEROKU_APP_URL to access Leek UI"
+echo "6. Access Bonsai dashboard: heroku addons:open bonsai --app $HEROKU_APP_NAME"
 echo ""
 echo -e "${GREEN}📖 See heroku-deploy-guide.md for detailed instructions${NC}" 

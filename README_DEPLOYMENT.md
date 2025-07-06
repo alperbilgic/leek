@@ -79,7 +79,7 @@ heroku releases:output --app funly-prod-leek
 
 **Manual Sync (if needed):**
 ```bash
-heroku run python manage.py sync_django_to_leek --days=30 --app funly-manage-prod
+heroku run --app funly-manage-test -- python manage.py sync_django_to_leek --days=30
 ```
 
 ## 📚 **More Information**

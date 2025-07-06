@@ -129,22 +129,14 @@ def trigger_django_sync() -> bool:
     try:
         log("📡 Executing sync command on Django app...")
         
-        # Use heroku run to execute the command on the Django app
-        heroku_command = [
+        # Construct the proper heroku run command with environment variables
+        heroku_run_command = [
             "heroku", "run",
             "--app", django_app,
             "--exit-code",
-            " ".join(sync_command)
-        ]
-        
-        # Add the API secret as an environment variable
-        heroku_run_command = [
-            "heroku", "run", 
-            f"LEEK_API_SECRET={api_secret}",
-            f"LEEK_URL={leek_url}",
-            "--app", django_app,
-            "--exit-code",
-            "--",
+            "-e", f"LEEK_API_SECRET={api_secret}",
+            "-e", f"LEEK_URL={leek_url}",
+            "--"
         ] + sync_command
         
         log(f"🚀 Running: {' '.join(heroku_run_command)}")

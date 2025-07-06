@@ -67,7 +67,7 @@ fi
 
 # Push to Heroku
 echo -e "${YELLOW}⬆️  Pushing to Heroku (this may take several minutes)...${NC}"
-git push $HEROKU_REMOTE main
+git push $HEROKU_REMOTE heroku:main
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Deployment successful!${NC}"

@@ -7,4 +7,4 @@ release:
   image: web
   command:
     - python
-    - release_with_sync.py 
+    - /opt/app/bin/bootstrap.py 

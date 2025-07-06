@@ -37,7 +37,11 @@ def fanout(items: List[Dict]):
     events = []
     for item in items:
         if item["kind"] == "task":
-            events.append(Task(id=item["uuid"], **item))
+            # Filter out fields that are not accepted by the Task constructor
+            # The 'type' field and other ES metadata fields can cause issues
+            fields_to_exclude = {"type"}  # Add more problematic fields here if needed
+            filtered_item = {k: v for k, v in item.items() if k not in fields_to_exclude}
+            events.append(Task(id=item["uuid"], **filtered_item))
     notify(g.context["app"], g.context["app_env"], events)
     logger.debug(f"--- Fanout in {time.time() - fanout_start_time} ---")
 

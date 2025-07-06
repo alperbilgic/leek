@@ -115,10 +115,7 @@ def trigger_django_sync() -> bool:
     sync_command = [
         "python", "manage.py", "sync_django_to_leek",
         f"--days={sync_days}",
-        f"--leek-url={leek_url}",
-        "--org-name=palnea.com",
-        "--app-name=funly",
-        "--app-env=prod"
+        f"--leek-url={leek_url}"
     ]
     
     # Set environment variables for the Django command

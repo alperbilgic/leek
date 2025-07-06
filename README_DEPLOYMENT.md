@@ -1,6 +1,6 @@
 # 🚀 Leek Deployment - Quick Start
 
-This is the **automatic deployment** system for Leek with Django task synchronization.
+This is the **automatic deployment** system for Leek with **Searchbox Elasticsearch**.
 
 ## ⚡ **Quick Deploy**
 
@@ -8,7 +8,7 @@ This is the **automatic deployment** system for Leek with Django task synchroniz
 # Set your environment
 export ENV=production  # or staging, test
 
-# Deploy everything (Leek + automatic Django sync)
+# Deploy everything (Leek + Searchbox)
 ./quick-deploy.sh
 ```
 
@@ -16,11 +16,10 @@ That's it! 🎉
 
 ## 🔧 **What Happens Automatically**
 
-1. **Setup**: Configures Heroku app with all environment variables
+1. **Setup**: Configures Heroku app with Searchbox addon
 2. **Deploy**: Builds and deploys Leek to Heroku  
-3. **Bootstrap**: Initializes Elasticsearch and Leek services
-4. **Sync**: Automatically syncs historical tasks from Django database
-5. **Ready**: Leek is running with all your historical data
+3. **Bootstrap**: Initializes Searchbox and Leek services
+4. **Ready**: Leek is running with persistent data storage
 
 ## 📊 **Check Status**
 
@@ -28,11 +27,14 @@ That's it! 🎉
 # View your Leek instance
 heroku open --app funly-prod-leek
 
-# Check release logs (including sync status)
+# Check release logs
 heroku releases:output --app funly-prod-leek
 
 # Monitor real-time
 heroku logs --tail --app funly-prod-leek
+
+# Access Searchbox dashboard
+heroku addons:open searchbox --app funly-prod-leek
 ```
 
 ## 🌍 **Multi-Environment Support**
@@ -53,16 +55,24 @@ ENV=test ./quick-deploy.sh
 The setup script will ask you for:
 - Firebase credentials
 - Email domain
-- Django app name
-- Days of history to sync (default: 30)
+- Django app name (for Redis connection)
 
 All configuration is stored in Heroku and persists across deployments.
+
+## 🔍 **Searchbox Elasticsearch**
+
+Your deployment includes:
+- ✅ **Persistent data storage** (survives app restarts)
+- ✅ **Managed Elasticsearch service** (no maintenance required)
+- ✅ **Better performance** and reliability
+- ✅ **Automatic backups** and monitoring
+- ✅ **Searchbox dashboard** for analytics
 
 ## 📁 **Key Files**
 
 - `quick-deploy.sh` - Main deployment script
-- `heroku-setup.sh` - Configuration setup
-- `release_with_sync.py` - Automatic sync (runs on Heroku)
+- `heroku-setup.sh` - Configuration setup with Searchbox
+- `release.py` - Automatic bootstrap (runs on Heroku)
 - `heroku.yml` - Heroku deployment config
 
 ## 🆘 **Troubleshooting**
@@ -72,20 +82,21 @@ All configuration is stored in Heroku and persists across deployments.
 heroku logs --app funly-prod-leek
 ```
 
-**Sync Issues:**  
+**Searchbox Issues:**
 ```bash
-heroku releases:output --app funly-prod-leek
+heroku addons:open searchbox --app funly-prod-leek
+heroku addons:info searchbox --app funly-prod-leek
 ```
 
-**Manual Sync (if needed):**
+**Bootstrap Issues:**  
 ```bash
-heroku run --app funly-manage-test -- python manage.py sync_django_to_leek --days=30
+heroku releases:output --app funly-prod-leek
 ```
 
 ## 📚 **More Information**
 
 - **Full Documentation**: `ENVIRONMENT_SETUP.md`
-- **Architecture Details**: `AUTOMATIC_DEPLOYMENT.md`
+- **Searchbox Guide**: `SEARCHBOX_DEPLOYMENT_GUIDE.md`
 
 ---
 

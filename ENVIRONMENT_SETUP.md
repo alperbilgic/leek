@@ -1,6 +1,6 @@
-# Environment-Aware Leek Deployment & Sync Guide
+# Environment-Aware Leek Deployment & Setup Guide
 
-This guide explains how to deploy Leek and set up automatic Django task syncing across different environments (test, staging, production).
+This guide explains how to deploy Leek with **Searchbox Elasticsearch** across different environments (test, staging, production).
 
 ## 🌍 Environment Configuration
 
@@ -13,7 +13,6 @@ The scripts automatically detect and configure based on these environment variab
 | `ENVIRONMENT` or `ENV` | Environment type | `production`, `staging`, `test` |
 | `LEEK_APP_NAME` | Heroku app name for Leek | `funly-prod-leek` |
 | `DJANGO_APP_NAME` | Heroku app name for Django | `funly-manage-prod` |
-| `SYNC_DAYS` | Days of history to sync | `30` (default) |
 
 ### Auto-Detection Rules
 
@@ -42,7 +41,7 @@ If environment variables are not set, the scripts use these patterns:
 # Set environment first
 export ENV=production  # or staging, test
 
-# Run deployment (Django sync happens automatically on Heroku)
+# Run deployment
 ./quick-deploy.sh
 ```
 
@@ -54,11 +53,11 @@ export ENV=production
 export LEEK_APP_NAME="funly-prod-leek"
 export DJANGO_APP_NAME="funly-manage-prod"
 
-# 2. Run setup
+# 2. Run setup (includes Searchbox addon)
 ./heroku-setup.sh
 
-# 3. Deploy manually (sync happens automatically during release)
-git push heroku-leek heroku-deployment:main
+# 3. Deploy manually
+git push heroku-leek main
 ```
 
 ### Option 3: Environment-Specific Variables
@@ -67,48 +66,65 @@ git push heroku-leek heroku-deployment:main
 # Production deployment
 LEEK_APP_NAME="funly-prod-leek" \
 DJANGO_APP_NAME="funly-manage-prod" \
-SYNC_DAYS=60 \
 ./quick-deploy.sh
 
 # Staging deployment  
 LEEK_APP_NAME="funly-staging-leek" \
 DJANGO_APP_NAME="funly-manage-staging" \
-SYNC_DAYS=14 \
 ./quick-deploy.sh
 ```
 
-## 🔄 Automatic Sync Operations
+## 🔍 Searchbox Elasticsearch Configuration
 
-### Automatic Sync (Default Behavior)
-Django data sync now happens **automatically** during each Leek deployment via Heroku release tasks.
+### Automatic Setup
+All deployment scripts automatically:
+- ✅ **Add Searchbox addon** to your Heroku app
+- ✅ **Configure persistent storage** for your Elasticsearch data
+- ✅ **Set environment variables** for optimal performance
+- ✅ **Enable dashboard access** for monitoring
 
+### Environment-Specific Searchbox Settings
 ```bash
-# Check sync status in release logs
-heroku releases:output --app funly-prod-leek
+# Production - Higher performance plan
+heroku addons:upgrade searchbox:professional --app funly-prod-leek
 
-# View real-time release logs
-heroku logs --tail --dyno=release --app funly-prod-leek
+# Staging - Standard plan
+heroku addons:upgrade searchbox:starter --app funly-staging-leek
+
+# Test - Starter plan (default)
+# Already configured automatically
 ```
 
-### Manual Sync (If Needed)
-```bash
-# Direct Django command (if manual sync needed)
-heroku run python manage.py sync_django_to_leek --days=30 --app funly-manage-prod
+## 📊 Monitoring and Analytics
 
-# Check if Django app has the sync command
-heroku run python manage.py help sync_django_to_leek --app funly-manage-prod
+### Searchbox Dashboard Access
+```bash
+# Open Searchbox dashboard for any environment
+heroku addons:open searchbox --app funly-prod-leek
+heroku addons:open searchbox --app funly-staging-leek
+heroku addons:open searchbox --app funly-manage-test-leek
+```
+
+### Performance Monitoring
+```bash
+# Check Searchbox performance metrics
+heroku addons:info searchbox --app funly-prod-leek
+
+# Monitor resource usage
+heroku ps --app funly-prod-leek
 ```
 
 ## 📁 File Structure
 
 ```
 leek/
-├── heroku-setup.sh          # Sets up Heroku app with environment variables
-├── quick-deploy.sh          # Deploys with automatic sync
-├── release_with_sync.py     # Automatic Heroku release task
-├── heroku.yml               # Heroku deployment configuration
-├── ENVIRONMENT_SETUP.md     # This guide
-└── AUTOMATIC_DEPLOYMENT.md  # Automatic deployment architecture
+├── heroku-setup.sh                 # Sets up Heroku app with Searchbox addon
+├── quick-deploy.sh                 # Deploys with automatic bootstrap
+├── release.py                      # Automatic Heroku release task
+├── heroku.yml                      # Heroku deployment configuration
+├── ENVIRONMENT_SETUP.md            # This guide
+├── SEARCHBOX_DEPLOYMENT_GUIDE.md   # Detailed Searchbox guide
+└── Dockerfile                      # Docker configuration (no local ES)
 ```
 
 ## 🔧 Environment-Specific Configuration Examples
@@ -118,8 +134,10 @@ leek/
 export ENV=production
 export LEEK_APP_NAME="funly-prod-leek"
 export DJANGO_APP_NAME="funly-manage-prod" 
-export SYNC_DAYS=90
 ./quick-deploy.sh
+
+# Upgrade to professional plan for production
+heroku addons:upgrade searchbox:professional --app funly-prod-leek
 ```
 
 ### Staging Setup
@@ -127,7 +145,6 @@ export SYNC_DAYS=90
 export ENV=staging
 export LEEK_APP_NAME="funly-staging-leek"
 export DJANGO_APP_NAME="funly-manage-staging"
-export SYNC_DAYS=30
 ./quick-deploy.sh
 ```
 
@@ -136,7 +153,6 @@ export SYNC_DAYS=30
 export ENV=test
 export LEEK_APP_NAME="funly-dev-leek"
 export DJANGO_APP_NAME="funly-manage-dev"
-export SYNC_DAYS=7
 ./quick-deploy.sh
 ```
 
@@ -154,10 +170,22 @@ export LEEK_APP_NAME="your-leek-app"
 export DJANGO_APP_NAME="your-django-app"
 ```
 
-### Sync Failures
+### Searchbox Issues
 ```bash
-# Check Django app has sync command
-heroku run python manage.py help sync_django_to_leek --app your-django-app
+# Check Searchbox addon status
+heroku addons:info searchbox --app your-leek-app
+
+# Test Searchbox connectivity
+curl -s "$(heroku config:get SEARCHBOX_URL --app your-leek-app)"
+
+# Access Searchbox dashboard
+heroku addons:open searchbox --app your-leek-app
+```
+
+### Bootstrap Issues
+```bash
+# Check bootstrap logs
+heroku logs --app your-leek-app | grep bootstrap
 
 # Check Leek is ready
 curl -s https://your-leek-app.herokuapp.com/v1/events/process \
@@ -169,26 +197,67 @@ curl -s https://your-leek-app.herokuapp.com/v1/events/process \
 ### Config Variables
 ```bash
 # Check stored config
-heroku config:get DEPLOYMENT_LEEK_APP --app your-leek-app
-heroku config:get DEPLOYMENT_DJANGO_APP --app your-leek-app
+heroku config:get SEARCHBOX_URL --app your-leek-app
+heroku config:get LEEK_ES_URL --app your-leek-app
 
 # Update if needed
-heroku config:set DEPLOYMENT_DJANGO_APP=your-django-app --app your-leek-app
+heroku config:set LEEK_ES_URL=$(heroku config:get SEARCHBOX_URL --app your-leek-app) --app your-leek-app
 ```
 
 ## 🎯 Best Practices
 
 1. **Use environment variables** for CI/CD pipelines
-2. **Set SYNC_DAYS appropriately** for your data retention needs
-3. **Monitor release logs** for automatic sync status
-4. **Check release output** after each deployment
-5. **Keep Django task retention** aligned with Leek sync period
+2. **Monitor release logs** for bootstrap status
+3. **Check Searchbox dashboard** for performance metrics
+4. **Use appropriate Searchbox plans** for each environment
+5. **Configure Celery workers** to send events to Leek
 
 ## 📊 Verification
 
-After deployment and sync:
+After deployment:
 
 1. **Check Leek Dashboard**: Visit your Leek URL
-2. **Verify Historical Tasks**: Look for tasks from before deployment
-3. **Test New Tasks**: Run a Celery task and verify it appears in both systems
-4. **Check Retry Functionality**: Try retrying a failed task from Leek UI 
+2. **Test Celery Integration**: Run a Celery task and verify it appears in Leek
+3. **Check Data Persistence**: Restart the app and verify data survives
+4. **Monitor Searchbox**: Use dashboard to verify data storage and performance
+
+## 💰 Cost Optimization by Environment
+
+### Production
+- **Searchbox Professional**: $49/month (10GB storage, 4GB RAM)
+- **Heroku Standard-2X**: $50/month (high availability)
+- **Total**: ~$99/month
+
+### Staging
+- **Searchbox Starter**: $9/month (1GB storage, 1GB RAM)
+- **Heroku Standard-1X**: $25/month
+- **Total**: ~$34/month
+
+### Test/Development
+- **Searchbox Starter**: $9/month
+- **Heroku Standard-1X**: $25/month
+- **Total**: ~$34/month
+
+## 🔍 Advanced Configuration
+
+### Custom Searchbox Settings
+```bash
+# Configure custom Elasticsearch settings per environment
+heroku config:set LEEK_ES_TIMEOUT=30 --app your-leek-app
+heroku config:set LEEK_ES_MAX_RETRIES=3 --app your-leek-app
+
+# Environment-specific index settings
+heroku config:set LEEK_ES_INDEX_PATTERN="leek-prod-*" --app funly-prod-leek
+heroku config:set LEEK_ES_INDEX_PATTERN="leek-staging-*" --app funly-staging-leek
+```
+
+### Backup and Recovery
+```bash
+# Searchbox provides automated backups
+# Access via dashboard for restore operations
+heroku addons:open searchbox --app your-leek-app
+```
+
+---
+
+**🎉 Success!** Your Leek deployment with Searchbox Elasticsearch is now configured for persistent, reliable task monitoring across all environments. 

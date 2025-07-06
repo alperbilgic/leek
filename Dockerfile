@@ -35,7 +35,7 @@ RUN yarn --cwd /opt/app/web build \
 ADD app/bin /opt/app/bin
 ADD app/conf /opt/app/conf
 ADD app/leek /opt/app/leek
-COPY release_with_sync.py /opt/app/
+COPY release.py /opt/app/
 
 FROM python:3.9-slim-buster AS runtime-image
 
@@ -51,8 +51,8 @@ ENV LEEK_ENABLE_API=true
 ENV LEEK_ENABLE_AGENT=true  
 ENV LEEK_ENABLE_WEB=true
 
-# Use local Elasticsearch instead of external services
-ENV LEEK_ES_URL=http://localhost:9200
+# Use external Searchbox Elasticsearch addon
+ENV LEEK_ES_URL=""
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
@@ -62,29 +62,12 @@ RUN apt-get update \
     procps \
     netcat-traditional \
     curl \
-    openjdk-11-jre-headless \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /etc/ssl/certs/java \
-    && /var/lib/dpkg/info/ca-certificates-java.postinst configure || true
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Heroku CLI for release script
 RUN curl https://cli-assets.heroku.com/install.sh | sh
 
-# Download and install Elasticsearch directly (avoid package manager issues)
-RUN wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.10.1-linux-x86_64.tar.gz \
-    && tar -xzf elasticsearch-7.10.1-linux-x86_64.tar.gz \
-    && mv elasticsearch-7.10.1 /opt/elasticsearch \
-    && rm elasticsearch-7.10.1-linux-x86_64.tar.gz
-
-# Create elasticsearch directories with proper permissions
-RUN mkdir -p /opt/elasticsearch/data /opt/elasticsearch/logs /opt/elasticsearch/config \
-    && chmod -R 755 /opt/elasticsearch
-
 COPY --from=compile-image /opt /opt
-
-# Copy Elasticsearch configuration
-COPY app/conf/elasticsearch-heroku.yml /opt/elasticsearch/config/elasticsearch.yml
-RUN chmod 644 /opt/elasticsearch/config/elasticsearch.yml
 
 ARG LEEK_VERSION="-.-.-"
 ARG LEEK_RELEASE_DATE="0000/00/00 00:00:00"

@@ -1,6 +1,6 @@
 # Leek Heroku Docker Deployment Guide
 
-This guide will help you deploy Leek to Heroku using Docker with Firebase authentication, Redis broker integration, and the full web UI.
+This guide will help you deploy Leek to Heroku using Docker with Searchbox Elasticsearch, Firebase authentication, Redis broker integration, and the full web UI.
 
 ## Prerequisites
 
@@ -44,21 +44,23 @@ This guide will help you deploy Leek to Heroku using Docker with Firebase authen
 heroku create funly-manage-test-leek
 heroku stack:set container --app funly-manage-test-leek
 
-# Check for existing addons first to avoid duplicates
+# Check for existing addons to avoid duplicates
 heroku addons --app funly-manage-test-leek
-
-# Add Bonsai Elasticsearch (only if it doesn't already exist)
-if ! heroku addons --app funly-manage-test-leek | grep -q "bonsai"; then
-    heroku addons:create bonsai:sandbox --app funly-manage-test-leek
-    echo "✅ Bonsai Elasticsearch addon created"
-else
-    echo "⚠️  Bonsai addon already exists, skipping creation"
-fi
-
-# Note: We don't create Redis here since you'll use your existing Redis from funly-manage-test
 ```
 
-### 2.2 Get Redis Connection Details
+### 2.2 Add Searchbox Elasticsearch
+```bash
+# Add Searchbox Elasticsearch addon
+heroku addons:create searchbox:starter --app funly-manage-test-leek
+
+# Wait for addon to be provisioned
+heroku addons:wait searchbox --app funly-manage-test-leek
+
+# Verify addon is ready
+heroku addons:info searchbox --app funly-manage-test-leek
+```
+
+### 2.3 Get Redis Connection Details
 Get your Redis URL from your existing app:
 ```bash
 heroku config:get REDIS_URL --app funly-manage-test
@@ -91,8 +93,13 @@ heroku config:set LEEK_API_WHITELISTED_ORGS=yourdomain.com --app funly-manage-te
 heroku config:set LEEK_API_URL=https://funly-manage-test-leek.herokuapp.com --app funly-manage-test-leek
 heroku config:set LEEK_WEB_URL=https://funly-manage-test-leek.herokuapp.com --app funly-manage-test-leek
 
-# Elasticsearch URL (from Bonsai addon)
-heroku config:set LEEK_ES_URL=$(heroku config:get BONSAI_URL --app funly-manage-test-leek) --app funly-manage-test-leek
+# Elasticsearch URL (from Searchbox addon)
+heroku config:set LEEK_ES_URL=$(heroku config:get SEARCHBOX_URL --app funly-manage-test-leek) --app funly-manage-test-leek
+
+# Searchbox-optimized settings
+heroku config:set LEEK_ES_IM_ENABLE=false --app funly-manage-test-leek
+heroku config:set LEEK_ES_INDEX_CLEANUP_ENABLED=false --app funly-manage-test-leek
+heroku config:set LEEK_CLEAN_DATABASE_ON_STARTUP=false --app funly-manage-test-leek
 
 # Agent Configuration
 heroku config:set LEEK_AGENT_API_SECRET=$(openssl rand -hex 32) --app funly-manage-test-leek
@@ -135,7 +142,7 @@ app.conf.task_track_started = True
 # From the project root directory, initialize git if not already done
 git init
 git add .
-git commit -m "Initial Leek Docker deployment"
+git commit -m "Initial Leek Docker deployment with Searchbox"
 
 # Add Heroku remote
 heroku git:remote -a funly-manage-test-leek
@@ -177,57 +184,97 @@ The web UI provides:
 - Task retry and control features
 - Beautiful dashboards and charts
 
-## Step 9: Verify Integration
+## Step 9: Access Searchbox Dashboard
+
+```bash
+# Open Searchbox dashboard
+heroku addons:open searchbox --app funly-manage-test-leek
+```
+
+The Searchbox dashboard provides:
+- 🔍 **Search and query** your Elasticsearch data
+- 📈 **Performance metrics** and monitoring
+- 🔧 **Index management** and settings
+- 📊 **Usage statistics** and analytics
+- 🚨 **Alerts and notifications**
+
+## Step 10: Verify Integration
 
 1. In your main app, trigger some Celery tasks
 2. Check the Leek dashboard to see if events are being received
 3. Monitor logs: `heroku logs --tail --app funly-manage-test-leek`
+4. Check Searchbox dashboard for data storage
 
-## Managing Addons and Avoiding Duplicates
+## Architecture
 
-### Check Existing Addons
-Always check what addons already exist before creating new ones:
-```bash
-# Check all addons for your Leek app
-heroku addons --app funly-manage-test-leek
+The deployment creates:
 
-# Check specific addon type
-heroku addons --app funly-manage-test-leek | grep bonsai
-heroku addons --app funly-manage-test-leek | grep redis
+```
+┌─────────────────────────────────────────┐
+│ Heroku Container (Single Dyno)         │
+├─────────────────────────────────────────┤
+│ ┌─────────┐ ┌─────────┐ ┌─────────────┐ │
+│ │ Nginx   │ │ API     │ │ Agent       │ │
+│ │ :$PORT  │ │ :5000   │ │ (Consumer)  │ │
+│ └─────────┘ └─────────┘ └─────────────┘ │
+├─────────────────────────────────────────┤
+│ Web UI (Static Files)                   │
+├─────────────────────────────────────────┤
+│ Supervisord (Process Manager)           │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+        ┌─────────────────────────┐
+        │ Searchbox Elasticsearch │
+        │ (Managed Service)       │
+        └─────────────────────────┘
 ```
 
-### Remove Duplicate or Unnecessary Addons
-If you accidentally created duplicate addons, you can remove them:
-```bash
-# List all addons with their names
-heroku addons --app funly-manage-test-leek
+## Components
 
-# Remove a specific addon (replace ADDON_NAME with actual name)
-heroku addons:destroy ADDON_NAME --app funly-manage-test-leek
+### API Server (Port 5000)
+- Flask REST API for Leek
+- Handles authentication via Firebase
+- Stores data in Searchbox Elasticsearch
 
-# Example: Remove duplicate Bonsai addon
-heroku addons:destroy bonsai-12345 --app funly-manage-test-leek
-```
+### Agent (Background Process)
+- Consumes Celery events from Redis
+- Forwards events to API for processing
+- Monitors your existing Celery workers
 
-> **💡 Tip**: The setup scripts (`heroku-setup.sh` and `quick-deploy.sh`) automatically check for existing addons to prevent duplicates.
+### Web UI (Nginx)
+- Beautiful React-based dashboard
+- Real-time monitoring and analytics
+- Task management and control
+
+### Reverse Proxy (Nginx on $PORT)
+- Routes `/v1/*` → API server
+- Routes `/*` → Static web files
+- Handles Firebase config injection
+
+### Searchbox Elasticsearch
+- Persistent data storage
+- Managed Elasticsearch service
+- Professional monitoring and alerting
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Authentication Issues**
+1. **Searchbox Connection Issues**
+   - Check if addon is provisioned: `heroku addons:info searchbox --app your-app-name`
+   - Verify Searchbox URL: `heroku config:get SEARCHBOX_URL --app your-app-name`
+   - Test connectivity: `curl -s "$(heroku config:get SEARCHBOX_URL --app your-app-name)"`
+
+2. **Authentication Issues**
    - Verify Firebase configuration
    - Check authorized domains in Firebase console
    - Ensure email domain matches `LEEK_API_OWNER_ORG`
 
-2. **Agent Not Receiving Events**
+3. **Agent Not Receiving Events**
    - Verify Redis URL is correct
    - Check that Celery workers have events enabled
    - Monitor agent logs for connection errors
-
-3. **Elasticsearch Issues**
-   - Verify Bonsai addon is properly provisioned
-   - Check `LEEK_ES_URL` environment variable
 
 ### Useful Commands
 
@@ -243,6 +290,12 @@ heroku restart --app funly-manage-test-leek
 
 # Check config
 heroku config --app funly-manage-test-leek
+
+# Access Searchbox dashboard
+heroku addons:open searchbox --app funly-manage-test-leek
+
+# Check Searchbox status
+heroku addons:info searchbox --app funly-manage-test-leek
 ```
 
 ## Security Notes
@@ -251,20 +304,21 @@ heroku config --app funly-manage-test-leek
 2. Use environment variables for all sensitive data
 3. Regularly rotate your `LEEK_AGENT_API_SECRET`
 4. Monitor access logs in Firebase Console
-
-## Docker Deployment Benefits
-
-This deployment uses Docker containers which provides:
-- **Consistent Environment**: Same environment in development and production
-- **Single Dyno**: API, Agent, and Web UI run in one container (cost-effective)
-- **Easy Scaling**: Scale up/down with a single command
-- **Built-in Dependencies**: All required software pre-installed
+5. Use Searchbox dashboard for Elasticsearch monitoring
 
 ## Cost Considerations
 
-- Bonsai Elasticsearch (Sandbox): **FREE** for development/testing
-- Bonsai Elasticsearch (Staging): ~$15/month for production 
-- Redis: **FREE** (using your existing Redis from `funly-manage-test`)
+- Searchbox Elasticsearch (Starter): **$9/month**
 - Single web dyno: ~$7/month (Standard-1X)
+- Redis: **FREE** (using your existing Redis from `funly-manage-test`)
 
-Total estimated cost: ~$7-22/month depending on Elasticsearch plan 
+Total estimated cost: ~$16/month
+
+## Benefits of This Architecture
+
+- **Persistent Data**: Searchbox ensures data survives app restarts
+- **Managed Service**: No Elasticsearch maintenance required
+- **Professional Monitoring**: Searchbox dashboard for analytics
+- **Cost-Effective**: Single dyno deployment with external storage
+- **Scalable**: Easy to scale both app and Elasticsearch independently
+- **Reliable**: Managed services with SLA guarantees 

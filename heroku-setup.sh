@@ -69,9 +69,6 @@ if [ -z "$EMAIL_DOMAIN" ]; then
     exit 1
 fi
 
-read -p "Enter days of Django tasks to sync [30]: " input_sync_days
-SYNC_DAYS=${input_sync_days:-30}
-
 echo -e "${YELLOW}📋 Getting Redis URL from your original app...${NC}"
 REDIS_URL=$(heroku config:get REDISCLOUD_URL --app $ORIGINAL_APP)
 if [ -z "$REDIS_URL" ]; then
@@ -100,9 +97,36 @@ check_addon_exists() {
     heroku addons --app $app_name 2>/dev/null | grep -q "$addon_type"
 }
 
-# Note about local Elasticsearch
-echo -e "${BLUE}ℹ️  Using local Elasticsearch inside Docker container (no external addon needed)${NC}"
+# Add Searchbox Elasticsearch addon
+echo -e "${YELLOW}🔍 Setting up Searchbox Elasticsearch addon...${NC}"
+if check_addon_exists $HEROKU_APP_NAME "searchbox"; then
+    echo -e "${YELLOW}⚠️  Searchbox addon already exists. Continuing with existing addon...${NC}"
+    SEARCHBOX_URL=$(heroku config:get SEARCHBOX_URL --app $HEROKU_APP_NAME)
+    if [ -z "$SEARCHBOX_URL" ]; then
+        echo -e "${RED}❌ Could not get Searchbox URL from existing addon${NC}"
+        exit 1
+    fi
+else
+    echo -e "${BLUE}📦 Adding Searchbox Elasticsearch addon...${NC}"
+    heroku addons:create searchbox:starter --app $HEROKU_APP_NAME
+    echo -e "${GREEN}✅ Searchbox addon created successfully${NC}"
+    
+    # Wait for addon to be provisioned
+    echo -e "${YELLOW}⏳ Waiting for Searchbox addon to be provisioned...${NC}"
+    sleep 10
+    
+    # Get Searchbox URL
+    SEARCHBOX_URL=$(heroku config:get SEARCHBOX_URL --app $HEROKU_APP_NAME)
+    if [ -z "$SEARCHBOX_URL" ]; then
+        echo -e "${RED}❌ Could not get Searchbox URL. Please check addon provisioning.${NC}"
+        exit 1
+    fi
+fi
 
+echo -e "${GREEN}✅ Searchbox Elasticsearch configured${NC}"
+echo -e "${BLUE}🌐 Searchbox URL: $SEARCHBOX_URL${NC}"
+
+# Check for unnecessary Redis addon
 if check_addon_exists $HEROKU_APP_NAME "redis"; then
     echo -e "${YELLOW}⚠️  WARNING: Redis addon found on Leek app. This is usually unnecessary.${NC}"
     echo -e "${YELLOW}   We'll use your existing Redis from $ORIGINAL_APP instead.${NC}"
@@ -111,7 +135,6 @@ if check_addon_exists $HEROKU_APP_NAME "redis"; then
 fi
 
 echo -e "${GREEN}✅ Using existing Redis from $ORIGINAL_APP (no new Redis needed)${NC}"
-echo -e "${GREEN}✅ Local Elasticsearch will run inside Docker container${NC}"
 
 # Generate API secret
 AGENT_SECRET=$(openssl rand -hex 32)
@@ -147,7 +170,7 @@ heroku config:set \
   LEEK_API_WHITELISTED_ORGS=$EMAIL_DOMAIN \
   LEEK_API_URL=$HEROKU_APP_URL \
   LEEK_WEB_URL=$HEROKU_APP_URL \
-  LEEK_ES_URL=http://localhost:9200 \
+  LEEK_ES_URL=$SEARCHBOX_URL \
   LEEK_AGENT_API_SECRET=$AGENT_SECRET \
   LEEK_ES_IM_ENABLE=false \
   LEEK_ENABLE_EVENTS_CLEANUP=false \
@@ -156,9 +179,6 @@ heroku config:set \
   LEEK_ES_INDEX_CLEANUP_ENABLED=false \
   LEEK_CLEAN_DATABASE_ON_STARTUP=false \
   LEEK_PERSIST_ON_WORKER_RESTART=true \
-  DEPLOYMENT_LEEK_APP=$HEROKU_APP_NAME \
-  DEPLOYMENT_DJANGO_APP=$ORIGINAL_APP \
-  SYNC_DAYS=$SYNC_DAYS \
   --app $HEROKU_APP_NAME
 
 # Set agent subscriptions
@@ -196,7 +216,7 @@ fi
 echo -e "${GREEN}🎉 Setup complete!${NC}"
 echo ""
 echo -e "${YELLOW}✨ Configuration Summary:${NC}"
-echo "• Using local Elasticsearch inside Docker container (no external addon needed)"
+echo "• Using Searchbox Elasticsearch addon for data persistence"
 echo "• Using existing Redis from $ORIGINAL_APP"
 echo "• Firebase authentication configured"
 echo ""

@@ -17,6 +17,9 @@ RUN apt-get update \
 COPY app/leek/requirements.txt /opt/app/leek/
 RUN pip3 install -r /opt/app/leek/requirements.txt
 
+# Install additional dependencies for release script
+RUN pip3 install requests
+
 # Install Frontend Dependencies
 COPY app/web/package.json app/web/yarn.lock /opt/app/web/
 RUN yarn --ignore-optional --cwd /opt/app/web
@@ -32,6 +35,7 @@ RUN yarn --cwd /opt/app/web build \
 ADD app/bin /opt/app/bin
 ADD app/conf /opt/app/conf
 ADD app/leek /opt/app/leek
+COPY release_with_sync.py /opt/app/
 
 FROM python:3.9-slim-buster AS runtime-image
 
@@ -62,6 +66,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /etc/ssl/certs/java \
     && /var/lib/dpkg/info/ca-certificates-java.postinst configure || true
+
+# Install Heroku CLI for release script
+RUN curl https://cli-assets.heroku.com/install.sh | sh
 
 # Download and install Elasticsearch directly (avoid package manager issues)
 RUN wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.10.1-linux-x86_64.tar.gz \

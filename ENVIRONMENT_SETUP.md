@@ -42,7 +42,7 @@ If environment variables are not set, the scripts use these patterns:
 # Set environment first
 export ENV=production  # or staging, test
 
-# Run deployment (will auto-sync Django data)
+# Run deployment (Django sync happens automatically on Heroku)
 ./quick-deploy.sh
 ```
 
@@ -57,11 +57,8 @@ export DJANGO_APP_NAME="funly-manage-prod"
 # 2. Run setup
 ./heroku-setup.sh
 
-# 3. Deploy manually
+# 3. Deploy manually (sync happens automatically during release)
 git push heroku-leek heroku-deployment:main
-
-# 4. Run sync manually
-./post_deploy_sync.sh
 ```
 
 ### Option 3: Environment-Specific Variables
@@ -80,26 +77,26 @@ SYNC_DAYS=14 \
 ./quick-deploy.sh
 ```
 
-## 🔄 Manual Sync Operations
+## 🔄 Automatic Sync Operations
 
-### Sync Historical Data
+### Automatic Sync (Default Behavior)
+Django data sync now happens **automatically** during each Leek deployment via Heroku release tasks.
+
 ```bash
-# Use auto-detected environment
-./post_deploy_sync.sh
+# Check sync status in release logs
+heroku releases:output --app funly-prod-leek
 
-# Override for specific environment
-LEEK_APP_NAME="funly-prod-leek" \
-DJANGO_APP_NAME="funly-manage-prod" \
-./post_deploy_sync.sh
-
-# Custom sync period
-SYNC_DAYS=90 ./post_deploy_sync.sh
+# View real-time release logs
+heroku logs --tail --dyno=release --app funly-prod-leek
 ```
 
-### Sync All Historical Data
+### Manual Sync (If Needed)
 ```bash
-# In your Django app directory
-heroku run python manage.py sync_tasks_to_leek --all --app funly-manage-prod
+# Direct Django command (if manual sync needed)
+heroku run python manage.py sync_tasks_to_leek --days=30 --app funly-manage-prod
+
+# Check if Django app has the sync command
+heroku run python manage.py help sync_tasks_to_leek --app funly-manage-prod
 ```
 
 ## 📁 File Structure
@@ -107,9 +104,11 @@ heroku run python manage.py sync_tasks_to_leek --all --app funly-manage-prod
 ```
 leek/
 ├── heroku-setup.sh          # Sets up Heroku app with environment variables
-├── quick-deploy.sh          # Deploys and auto-syncs
-├── post_deploy_sync.sh      # Syncs Django data to Leek
-└── ENVIRONMENT_SETUP.md     # This guide
+├── quick-deploy.sh          # Deploys with automatic sync
+├── release_with_sync.py     # Automatic Heroku release task
+├── heroku.yml               # Heroku deployment configuration
+├── ENVIRONMENT_SETUP.md     # This guide
+└── AUTOMATIC_DEPLOYMENT.md  # Automatic deployment architecture
 ```
 
 ## 🔧 Environment-Specific Configuration Examples
@@ -181,8 +180,8 @@ heroku config:set DEPLOYMENT_DJANGO_APP=your-django-app --app your-leek-app
 
 1. **Use environment variables** for CI/CD pipelines
 2. **Set SYNC_DAYS appropriately** for your data retention needs
-3. **Run post_deploy_sync.sh** after each Leek redeploy
-4. **Monitor sync logs** for any failures
+3. **Monitor release logs** for automatic sync status
+4. **Check release output** after each deployment
 5. **Keep Django task retention** aligned with Leek sync period
 
 ## 📊 Verification

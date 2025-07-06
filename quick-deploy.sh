@@ -63,7 +63,7 @@ fi
 
 # Push to Heroku
 echo -e "${YELLOW}⬆️  Pushing to Heroku (this may take several minutes)...${NC}"
-git push heroku-test heroku-deployment:main
+git push heroku-leek heroku-deployment:main
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Deployment successful!${NC}"
@@ -81,23 +81,8 @@ if [ $? -eq 0 ]; then
     echo -e "${YELLOW}🌐 Your Leek instance:${NC} $HEROKU_APP_URL"
     echo ""
     
-    # Auto-sync Django data to Leek
-    echo -e "${BLUE}🔄 Starting automatic Django to Leek sync...${NC}"
-    export LEEK_APP_NAME="$APP_NAME"
-    
-    if [ -f "post_deploy_sync.sh" ]; then
-        echo -e "${YELLOW}📋 Running post-deployment sync...${NC}"
-        chmod +x post_deploy_sync.sh
-        if ./post_deploy_sync.sh; then
-            echo -e "${GREEN}✅ Post-deployment sync completed successfully!${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Post-deployment sync failed, but deployment was successful${NC}"
-            echo -e "${YELLOW}   You can run it manually later: ./post_deploy_sync.sh${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠️  post_deploy_sync.sh not found, skipping automatic sync${NC}"
-        echo -e "${YELLOW}   You can run sync manually if needed${NC}"
-    fi
+    echo -e "${BLUE}ℹ️  Django data sync will run automatically on Heroku${NC}"
+    echo -e "${YELLOW}📋 Check release logs for sync status: heroku releases:output --app $APP_NAME${NC}"
     
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"

@@ -69,6 +69,9 @@ if [ -z "$EMAIL_DOMAIN" ]; then
     exit 1
 fi
 
+read -p "Enter days of Django tasks to sync [30]: " input_sync_days
+SYNC_DAYS=${input_sync_days:-30}
+
 echo -e "${YELLOW}📋 Getting Redis URL from your original app...${NC}"
 REDIS_URL=$(heroku config:get REDISCLOUD_URL --app $ORIGINAL_APP)
 if [ -z "$REDIS_URL" ]; then
@@ -155,6 +158,7 @@ heroku config:set \
   LEEK_PERSIST_ON_WORKER_RESTART=true \
   DEPLOYMENT_LEEK_APP=$HEROKU_APP_NAME \
   DEPLOYMENT_DJANGO_APP=$ORIGINAL_APP \
+  SYNC_DAYS=$SYNC_DAYS \
   --app $HEROKU_APP_NAME
 
 # Set agent subscriptions

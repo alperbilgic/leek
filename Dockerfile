@@ -36,6 +36,7 @@ ADD app/bin /opt/app/bin
 ADD app/conf /opt/app/conf
 ADD app/leek /opt/app/leek
 COPY release.py /opt/app/
+COPY app/bin/bootstrap-searchbox.py /opt/app/bin/
 
 FROM python:3.9-slim-buster AS runtime-image
 

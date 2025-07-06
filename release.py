@@ -17,23 +17,41 @@ def log(message: str, level: str = "INFO"):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] [{level}] {message}")
 
-def run_bootstrap():
-    """Run the standard Leek bootstrap process"""
-    log("🚀 Starting Leek bootstrap...")
+def configure_searchbox_environment():
+    """Configure environment variables for Searchbox compatibility"""
+    log("🔧 Configuring environment for Searchbox compatibility...")
+    
+    # Set environment variables to disable operations that Searchbox doesn't allow
+    os.environ["LEEK_ES_IM_ENABLE"] = "false"
+    os.environ["LEEK_ES_INDEX_CLEANUP_ENABLED"] = "false"
+    os.environ["LEEK_CLEAN_DATABASE_ON_STARTUP"] = "false"
+    os.environ["LEEK_ENABLE_EVENTS_CLEANUP"] = "false"
+    os.environ["LEEK_ENABLE_STATS_CLEANUP"] = "false"
+    os.environ["LEEK_CLEAN_BROKER_ON_STARTUP"] = "false"
+    os.environ["LEEK_PERSIST_ON_WORKER_RESTART"] = "true"
+    
+    # Disable local ES since we're using Searchbox
+    os.environ["LEEK_ENABLE_ES"] = "false"
+    
+    log("✅ Environment configured for Searchbox")
+
+def run_searchbox_bootstrap():
+    """Run the Searchbox-compatible bootstrap process"""
+    log("🚀 Starting Searchbox-compatible bootstrap...")
     
     try:
-        # Run the original bootstrap
+        # Run our custom Searchbox-compatible bootstrap
         result = subprocess.run([
-            "python", "/opt/app/bin/bootstrap.py"
+            "python", "/opt/app/bin/bootstrap-searchbox.py"
         ], capture_output=True, text=True, timeout=300)
         
         if result.returncode == 0:
-            log("✅ Bootstrap completed successfully")
+            log("✅ Searchbox bootstrap completed successfully")
             if result.stdout:
                 print(result.stdout)
             return True
         else:
-            log(f"❌ Bootstrap failed with return code {result.returncode}", "ERROR")
+            log(f"❌ Searchbox bootstrap failed with return code {result.returncode}", "ERROR")
             if result.stderr:
                 print(result.stderr)
             return False
@@ -96,6 +114,7 @@ def check_searchbox_connection():
         return True  # Don't fail if not configured yet
     
     try:
+        # Use basic GET request for compatibility
         response = requests.get(searchbox_url, timeout=10)
         if response.status_code == 200:
             log("✅ Searchbox connection verified")
@@ -109,22 +128,25 @@ def check_searchbox_connection():
 
 def main():
     """Main release process"""
-    log("🎬 Starting Heroku release process")
+    log("🎬 Starting Heroku release process with Searchbox")
     
-    # Step 1: Check Searchbox connection
+    # Step 1: Configure environment for Searchbox
+    configure_searchbox_environment()
+    
+    # Step 2: Check Searchbox connection
     check_searchbox_connection()
     
-    # Step 2: Run standard bootstrap
-    if not run_bootstrap():
-        log("❌ Release failed during bootstrap", "ERROR")
+    # Step 3: Run Searchbox-compatible bootstrap
+    if not run_searchbox_bootstrap():
+        log("❌ Release failed during Searchbox bootstrap", "ERROR")
         sys.exit(1)
     
-    # Step 3: Wait for API to be ready
+    # Step 4: Final API verification
     if not wait_for_leek_api():
         log("❌ Release failed - API not ready", "ERROR")
         sys.exit(1)
     
-    log("🎉 Release process completed successfully!")
+    log("🎉 Searchbox release process completed successfully!")
     
     # Print summary
     leek_url = get_config_value("LEEK_WEB_URL", get_config_value("LEEK_API_URL", ""))
